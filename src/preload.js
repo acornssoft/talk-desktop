@@ -177,10 +177,9 @@ const TALK_DESKTOP = {
 	/**
 	 * Re-open the Login Flow v2 URL in the default browser
 	 *
-	 * @param {string} loginUrl - The login URL
 	 * @return {Promise<void>}
 	 */
-	reopenLoginFlowV2: (loginUrl) => ipcRenderer.invoke('authentication:reopenLoginFlowV2', loginUrl),
+	reopenLoginFlowV2: () => ipcRenderer.invoke('authentication:reopenLoginFlowV2'),
 	/**
 	 * Open main window after logging in
 	 *

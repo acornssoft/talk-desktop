@@ -111,7 +111,7 @@ async function startLoginFlowV2(serverUrl) {
 			// Only resolve if not already resolved by timeout
 			if (timeoutId !== null) {
 				cleanup()
-				resolve(new Error('Login was cancelled'))
+				resolve(new Error('cancelled'))
 			}
 		})
 
@@ -119,7 +119,7 @@ async function startLoginFlowV2(serverUrl) {
 		timeoutId = setTimeout(() => {
 			timeoutId = null
 			cleanup()
-			resolve(new Error('Login timed out. Please try again.'))
+			resolve(new Error('timeout'))
 			controller.abort()
 		}, TIMEOUT_MS)
 
@@ -162,14 +162,14 @@ async function startLoginFlowV2(serverUrl) {
 
 				// Unexpected status
 				cleanup()
-				resolve(new Error(`Unexpected server response: ${response.status}`))
+				resolve(new Error('unexpected'))
 			} catch {
 				if (controller.signal.aborted) {
 					// Already handled by abort listener
 					return
 				}
 				cleanup()
-				resolve(new Error('Network error during login'))
+				resolve(new Error('network'))
 			}
 		}
 
@@ -201,13 +201,14 @@ function cancelLoginFlowV2() {
 }
 
 /**
- * Re-open the login URL in the default browser
+ * Re-open the login URL in the default browser using the active session
  *
- * @param {string} loginUrl - The login URL from the v2 flow
  * @return {Promise<void>}
  */
-async function reopenLoginFlowV2(loginUrl) {
-	await shell.openExternal(loginUrl)
+async function reopenLoginFlowV2() {
+	if (activeSession) {
+		await shell.openExternal(activeSession.loginUrl)
+	}
 }
 
 module.exports = {

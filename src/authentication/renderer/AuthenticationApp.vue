@@ -41,8 +41,12 @@ const serverUrl = computed(() => {
 const state = ref('idle')
 const stateText = ref('')
 
-/** @type {import('vue').Ref<string|null>} */
-const loginFlowV2Url = ref(null)
+/**
+ * Generation counter to detect stale login flows.
+ * Incremented on cancel; checked after async operations to silently bail out
+ * if the user cancelled while a flow was in progress.
+ */
+let loginGeneration = 0
 
 onMounted(() => {
 	if (enforceDomain) {
@@ -58,6 +62,23 @@ onUnmounted(() => {
 })
 
 /**
+ * Map a machine-readable Login Flow v2 error code to a localized user-facing message
+ *
+ * @param {string} code - Error code from the main process
+ * @return {string} Localized error message
+ */
+function mapLoginFlowV2Error(code) {
+	const messages = {
+		timeout: t('talk_desktop', 'Login timed out. Please try again.'),
+		network: t('talk_desktop', 'A network error occurred during login. Please try again.'),
+		unexpected: t('talk_desktop', 'Unexpected server error'),
+		no_session: t('talk_desktop', 'Unexpected error'),
+		cancelled: t('talk_desktop', 'Login was cancelled'),
+	}
+	return messages[code] ?? t('talk_desktop', 'Unexpected error')
+}
+
+/**
  * Switch state to success
  */
 function setSuccess() {
@@ -71,7 +92,6 @@ function setSuccess() {
 function setLoading() {
 	state.value = 'loading'
 	stateText.value = ''
-	loginFlowV2Url.value = null
 }
 
 /**
@@ -90,7 +110,6 @@ function setAwaitingBrowser() {
 function setError(error) {
 	state.value = 'error'
 	stateText.value = error
-	loginFlowV2Url.value = null
 }
 
 /**
@@ -100,7 +119,6 @@ function reset() {
 	rawServerUrl.value = ''
 	state.value = 'idle'
 	stateText.value = ''
-	loginFlowV2Url.value = null
 	prefilledServer = ''
 	prefilledUser = ''
 	setAppConfigValue('accounts', [])
@@ -110,44 +128,46 @@ function reset() {
  * Cancel the active Login Flow v2 and return to idle
  */
 function cancelLoginFlowV2() {
+	loginGeneration++
 	window.TALK_DESKTOP.cancelLoginFlowV2()
 	state.value = 'idle'
 	stateText.value = ''
-	loginFlowV2Url.value = null
 }
 
 /**
  * Re-open the login URL in the default browser
  */
 function reopenBrowser() {
-	if (loginFlowV2Url.value) {
-		window.TALK_DESKTOP.reopenLoginFlowV2(loginFlowV2Url.value)
-	}
+	window.TALK_DESKTOP.reopenLoginFlowV2()
 }
 
 /**
- * Try Login Flow v2, returns credentials or null if v2 is not available
+ * Try Login Flow v2, returns credentials or null if v2 is not available.
+ * The try block only covers startLoginFlowV2 (init POST); await errors are
+ * propagated as Error instances, not treated as v2-unavailable.
  *
  * @return {Promise<import('../../authentication/login.service.js').Credentials|Error|null>} credentials, Error, or null (v2 unavailable)
  */
 async function tryLoginFlowV2() {
 	try {
-		const { loginUrl } = await window.TALK_DESKTOP.startLoginFlowV2(serverUrl.value)
-		loginFlowV2Url.value = loginUrl
-		setAwaitingBrowser()
-
-		const result = await window.TALK_DESKTOP.awaitLoginFlowV2()
-		return result
+		await window.TALK_DESKTOP.startLoginFlowV2(serverUrl.value)
 	} catch {
-		// Login Flow v2 init failed - endpoint not available
+		// Login Flow v2 init failed - endpoint not available, fall back to v1
 		return null
 	}
+
+	// v2 is available - show waiting UI
+	setAwaitingBrowser()
+
+	const result = await window.TALK_DESKTOP.awaitLoginFlowV2()
+	return result
 }
 
 /**
  * Login
  */
 async function login() {
+	const myGeneration = ++loginGeneration
 	setLoading()
 
 	// Only https:// is allowed
@@ -168,6 +188,10 @@ async function login() {
 		return setError(t('talk_desktop', 'SSL certificate error'))
 	}
 
+	if (loginGeneration !== myGeneration) {
+		return
+	}
+
 	// Prepare to request the server
 	window.TALK_DESKTOP.disableWebRequestInterceptor()
 	appData.reset()
@@ -179,6 +203,10 @@ async function login() {
 		capabilitiesResponse = await getCapabilities(serverUrl.value)
 	} catch {
 		return setError(t('talk_desktop', 'Nextcloud server not found'))
+	}
+
+	if (loginGeneration !== myGeneration) {
+		return
 	}
 
 	// Check if Talk is installed and enabled
@@ -205,11 +233,19 @@ async function login() {
 	let credentials
 	const v2Result = await tryLoginFlowV2()
 
+	// Check if cancelled during the flow
+	if (loginGeneration !== myGeneration) {
+		return
+	}
+
 	if (v2Result === null) {
 		// Login Flow v2 not available - fall back to v1 WebView
 		setLoading()
 		try {
 			const maybeCredentials = await window.TALK_DESKTOP.openLoginWebView(serverUrl.value)
+			if (loginGeneration !== myGeneration) {
+				return
+			}
 			if (maybeCredentials instanceof Error) {
 				return setError(maybeCredentials.message)
 			}
@@ -219,7 +255,8 @@ async function login() {
 			return setError(t('talk_desktop', 'Unexpected error'))
 		}
 	} else if (v2Result instanceof Error) {
-		return setError(v2Result.message)
+		// Map machine-readable error code to localized message
+		return setError(mapLoginFlowV2Error(v2Result.message))
 	} else {
 		credentials = v2Result
 	}
@@ -238,6 +275,10 @@ async function login() {
 		// A network connection was lost after successful requests or something unexpected went wrong
 		console.error(error)
 		return setError(t('talk_desktop', 'Login was successful but something went wrong.'))
+	}
+
+	if (loginGeneration !== myGeneration) {
+		return
 	}
 
 	// Yay!
@@ -298,7 +339,7 @@ async function login() {
 						<template #icon>
 							<NcLoadingIcon appearance="light" />
 						</template>
-						{{ t('talk_desktop', 'Logging in …') }}
+						{{ t('talk_desktop', 'Logging in\u00a0…') }}
 					</NcButton>
 				</fieldset>
 			</form>
