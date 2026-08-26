@@ -156,6 +156,32 @@ const TALK_DESKTOP = {
 	 */
 	openLoginWebView: (server, user) => ipcRenderer.invoke('authentication:openLoginWebView', server, user),
 	/**
+	 * Start Login Flow v2 and open the login page in the default browser
+	 *
+	 * @param {string} serverUrl - Server URL
+	 * @return {Promise<{ loginUrl: string }>}
+	 */
+	startLoginFlowV2: (serverUrl) => ipcRenderer.invoke('authentication:startLoginFlowV2', serverUrl),
+	/**
+	 * Await the result of an active Login Flow v2 polling session
+	 *
+	 * @return {Promise<import('./authentication/login.service.js').Credentials|Error>}
+	 */
+	awaitLoginFlowV2: () => ipcRenderer.invoke('authentication:awaitLoginFlowV2'),
+	/**
+	 * Cancel the active Login Flow v2 session
+	 *
+	 * @return {Promise<void>}
+	 */
+	cancelLoginFlowV2: () => ipcRenderer.invoke('authentication:cancelLoginFlowV2'),
+	/**
+	 * Re-open the Login Flow v2 URL in the default browser
+	 *
+	 * @param {string} loginUrl - The login URL
+	 * @return {Promise<void>}
+	 */
+	reopenLoginFlowV2: (loginUrl) => ipcRenderer.invoke('authentication:reopenLoginFlowV2', loginUrl),
+	/**
 	 * Open main window after logging in
 	 *
 	 * @param {import('./AppData.js').appData} appData - AppData

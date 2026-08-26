@@ -5,7 +5,7 @@
 
 <script setup>
 import { translate as t } from '@nextcloud/l10n'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
@@ -37,13 +37,23 @@ const serverUrl = computed(() => {
 	return removeTrailingSlash(removeIndexPhp(addHTTPS(rawServerUrl.value))).trim()
 })
 
-/** @type {import('vue').Ref<'idle'|'loading'|'error'|'success'>} */
+/** @type {import('vue').Ref<'idle'|'loading'|'awaiting-browser'|'error'|'success'>} */
 const state = ref('idle')
 const stateText = ref('')
+
+/** @type {import('vue').Ref<string|null>} */
+const loginFlowV2Url = ref(null)
 
 onMounted(() => {
 	if (enforceDomain) {
 		login()
+	}
+})
+
+onUnmounted(() => {
+	// Cancel any active v2 flow when component is destroyed
+	if (state.value === 'awaiting-browser') {
+		window.TALK_DESKTOP.cancelLoginFlowV2()
 	}
 })
 
@@ -61,6 +71,15 @@ function setSuccess() {
 function setLoading() {
 	state.value = 'loading'
 	stateText.value = ''
+	loginFlowV2Url.value = null
+}
+
+/**
+ * Switch state to awaiting browser
+ */
+function setAwaitingBrowser() {
+	state.value = 'awaiting-browser'
+	stateText.value = ''
 }
 
 /**
@@ -71,6 +90,7 @@ function setLoading() {
 function setError(error) {
 	state.value = 'error'
 	stateText.value = error
+	loginFlowV2Url.value = null
 }
 
 /**
@@ -80,9 +100,48 @@ function reset() {
 	rawServerUrl.value = ''
 	state.value = 'idle'
 	stateText.value = ''
+	loginFlowV2Url.value = null
 	prefilledServer = ''
 	prefilledUser = ''
 	setAppConfigValue('accounts', [])
+}
+
+/**
+ * Cancel the active Login Flow v2 and return to idle
+ */
+function cancelLoginFlowV2() {
+	window.TALK_DESKTOP.cancelLoginFlowV2()
+	state.value = 'idle'
+	stateText.value = ''
+	loginFlowV2Url.value = null
+}
+
+/**
+ * Re-open the login URL in the default browser
+ */
+function reopenBrowser() {
+	if (loginFlowV2Url.value) {
+		window.TALK_DESKTOP.reopenLoginFlowV2(loginFlowV2Url.value)
+	}
+}
+
+/**
+ * Try Login Flow v2, returns credentials or null if v2 is not available
+ *
+ * @return {Promise<import('../../authentication/login.service.js').Credentials|Error|null>} credentials, Error, or null (v2 unavailable)
+ */
+async function tryLoginFlowV2() {
+	try {
+		const { loginUrl } = await window.TALK_DESKTOP.startLoginFlowV2(serverUrl.value)
+		loginFlowV2Url.value = loginUrl
+		setAwaitingBrowser()
+
+		const result = await window.TALK_DESKTOP.awaitLoginFlowV2()
+		return result
+	} catch {
+		// Login Flow v2 init failed - endpoint not available
+		return null
+	}
 }
 
 /**
@@ -142,18 +201,30 @@ async function login() {
 		return setError(createVersionError('Nextcloud Talk', MIN_REQUIRED_TALK_VERSION, talkCapabilities.version))
 	}
 
-	// Login with web view
+	// Try Login Flow v2 first, fall back to v1 WebView
 	let credentials
-	try {
-		const maybeCredentials = await window.TALK_DESKTOP.openLoginWebView(serverUrl.value)
-		if (maybeCredentials instanceof Error) {
-			return setError(maybeCredentials.message)
+	const v2Result = await tryLoginFlowV2()
+
+	if (v2Result === null) {
+		// Login Flow v2 not available - fall back to v1 WebView
+		setLoading()
+		try {
+			const maybeCredentials = await window.TALK_DESKTOP.openLoginWebView(serverUrl.value)
+			if (maybeCredentials instanceof Error) {
+				return setError(maybeCredentials.message)
+			}
+			credentials = maybeCredentials
+		} catch (error) {
+			console.error(error)
+			return setError(t('talk_desktop', 'Unexpected error'))
 		}
-		credentials = maybeCredentials
-	} catch (error) {
-		console.error(error)
-		return setError(t('talk_desktop', 'Unexpected error'))
+	} else if (v2Result instanceof Error) {
+		return setError(v2Result.message)
+	} else {
+		credentials = v2Result
 	}
+
+	setLoading()
 
 	// Add credentials to the request
 	window.TALK_DESKTOP.enableWebRequestInterceptor(serverUrl.value, { credentials })
@@ -187,7 +258,7 @@ async function login() {
 			<div class="logo" />
 		</div>
 		<div class="login-box">
-			<form @submit.prevent="login">
+			<form v-if="state !== 'awaiting-browser'" @submit.prevent="login">
 				<fieldset :disabled="state === 'loading'">
 					<h2 class="login-box__header">
 						{{ t('talk_desktop', 'Log in to {applicationName}', { applicationName: BUILD_CONFIG.applicationName }) }}
@@ -231,6 +302,29 @@ async function login() {
 					</NcButton>
 				</fieldset>
 			</form>
+			<div v-else class="awaiting-browser">
+				<h2 class="login-box__header">
+					{{ t('talk_desktop', 'Log in to {applicationName}', { applicationName: BUILD_CONFIG.applicationName }) }}
+				</h2>
+				<NcLoadingIcon :size="44" class="awaiting-browser__icon" />
+				<p class="awaiting-browser__text">
+					{{ t('talk_desktop', 'Complete the login in your browser.') }}
+				</p>
+				<NcButton
+					class="awaiting-browser__button"
+					variant="secondary"
+					wide
+					@click="reopenBrowser">
+					{{ t('talk_desktop', 'Open the browser again') }}
+				</NcButton>
+				<NcButton
+					class="awaiting-browser__button"
+					variant="tertiary"
+					wide
+					@click="cancelLoginFlowV2">
+					{{ t('talk_desktop', 'Cancel') }}
+				</NcButton>
+			</div>
 		</div>
 		<div class="spacer">
 			<footer v-if="channel !== 'stable'" class="footer">
@@ -286,6 +380,26 @@ async function login() {
 
 .submit-button {
 	margin-top: 0.5rem;
+}
+
+.awaiting-browser {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.awaiting-browser__icon {
+	margin: 1rem 0;
+}
+
+.awaiting-browser__text {
+	text-align: center;
+	margin: 0 0 0.5rem;
+}
+
+.awaiting-browser__button {
+	margin-top: 0.25rem;
 }
 
 :deep(.login-box__server--predefined) {
