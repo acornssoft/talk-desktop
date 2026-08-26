@@ -30,6 +30,15 @@ export type ReleaseInfo = {
  * Get the latest and stable releases
  */
 async function getLatestRelease(): Promise<{ latest?: ReleaseInfo, stable?: ReleaseInfo }> {
+	// acorns: 更新チェックを無効化する。
+	// 下の fetch は upstream の nextcloud-releases/talk-desktop を見ているため、
+	// そのままだとフォーク版の利用者に upstream 版への更新が案内され、実行すると
+	// 和訳・モデレーター改変・ブランディングが全て消える。
+	// 空を返すと checkForUpdate() の `if (!latest) return null` が働き、
+	// 呼び出し側(main.js の scheduler と app:update:check)は「更新なし」として扱う。
+	// 自前のリリース経路を作ったら fetch 先をそちらに向けてこの return を外す。
+	return {}
+
 	type GitHubReleaseResponse = {
 		tag_name: string
 		prerelease: boolean
