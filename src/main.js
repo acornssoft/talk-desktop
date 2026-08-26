@@ -24,6 +24,7 @@ const { buildTitle, onReadyToShow } = require('./app/utils.ts')
 const { enableWebRequestInterceptor, disableWebRequestInterceptor } = require('./app/webRequestInterceptor.js')
 const { createAuthenticationWindow } = require('./authentication/authentication.window.js')
 const { openLoginWebView } = require('./authentication/login.window.js')
+const { startLoginFlowV2, cancelLoginFlowV2, reopenLoginFlowV2, getActiveSession } = require('./authentication/loginFlowV2.service.js')
 const { createCallboxWindow } = require('./callbox/callbox.window.ts')
 const { createHelpWindow } = require('./help/help.window.js')
 const { installVueDevtools } = require('./install-vue-devtools.js')
@@ -290,6 +291,23 @@ app.whenReady().then(async () => {
 	ipcMain.handle('talk:focus', async () => focusMainWindow())
 
 	ipcMain.handle('authentication:openLoginWebView', async (event, serverUrl, user) => openLoginWebView(mainWindow, serverUrl, user))
+
+	ipcMain.handle('authentication:startLoginFlowV2', async (event, serverUrl) => {
+		const session = await startLoginFlowV2(serverUrl)
+		return { loginUrl: session.loginUrl }
+	})
+
+	ipcMain.handle('authentication:awaitLoginFlowV2', async () => {
+		const session = getActiveSession()
+		if (!session) {
+			return new Error('no_session')
+		}
+		return session.result
+	})
+
+	ipcMain.handle('authentication:cancelLoginFlowV2', async () => cancelLoginFlowV2())
+
+	ipcMain.handle('authentication:reopenLoginFlowV2', async () => reopenLoginFlowV2())
 
 	ipcMain.handle('authentication:login', async (event, newAppData) => {
 		appData.fromJSON(newAppData)
