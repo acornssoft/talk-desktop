@@ -103,7 +103,6 @@ async function startLoginFlowV2(serverUrl) {
 			if (activeController === controller) {
 				activeController = null
 			}
-			activeSession = null
 		}
 
 		// Listen for abort (cancel)
