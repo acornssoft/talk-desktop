@@ -56,6 +56,7 @@ async function startLoginFlowV2(serverUrl) {
 		activeController.abort()
 		activeController = null
 	}
+	activeSession = null
 
 	const controller = new AbortController()
 	activeController = controller
@@ -197,6 +198,7 @@ function cancelLoginFlowV2() {
 		activeController.abort()
 		activeController = null
 	}
+	activeSession = null
 }
 
 /**
