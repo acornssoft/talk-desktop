@@ -67,10 +67,18 @@ async function applyL10n() {
 	console.info(`Using locale "${locale}" for language "${language}"`)
 
 	if (language !== 'en') {
-		await Promise.all([
-			loadAndRegisterL10n('spreed', language, (lang) => import(`@talk/l10n/${lang}.json`)),
-			loadAndRegisterL10n('talk_desktop', language, (lang) => import(`../../l10n/${lang}.json`)),
-		])
+		// talk_desktop は spreed と独立なので並列で読み込んで良い
+		const desktopL10n = loadAndRegisterL10n('talk_desktop', language, (lang) => import(`../../l10n/${lang}.json`))
+
+		// acorns: spreed は 2 段。register() は後勝ちマージ(@nextcloud/l10n の
+		// registerAppTranslations が {...既存, ...新規} でスプレッドする)なので、
+		// upstream の翻訳を登録し終えてから acorns の差分を重ねる。
+		// Promise.all だと動的 import の解決順が不定で、差分が先に登録されて
+		// upstream に上書きされ得るため、この 2 つは逐次にする。
+		await loadAndRegisterL10n('spreed', language, (lang) => import(`@talk/l10n/${lang}.json`))
+		await loadAndRegisterL10n('spreed', language, (lang) => import(`../../l10n-spreed/${lang}.json`))
+
+		await desktopL10n
 	}
 
 	document.body.dir = isRTL(canonicalLanguage) ? 'rtl' : 'ltr'
