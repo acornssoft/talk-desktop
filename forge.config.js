@@ -245,6 +245,12 @@ module.exports = {
 			shortName: BUILD_CONFIG.applicationNameSanitized,
 			upgradeCode: BUILD_CONFIG.winUpgradeCode,
 			arch: 'x64', // electron-wix-msi defaults to x86 and arm64 is not supported
+			// acorns: インストーラ UI を日本語にする。
+			// language は MSI パッケージの言語 ID(既定 1033 = 英語)、
+			// cultures は light.exe の -cultures: に渡り、WixUIExtension.dll に
+			// 埋め込まれた WixUI_ja-jp.wxl が使われる。
+			language: 1041, // ja-JP
+			cultures: 'ja-jp',
 			// Pass the version explicitly
 			// otherwise MakerWix makes versions with prerelease tags invalid semantic version
 			// which breaks app launch via stub executable
