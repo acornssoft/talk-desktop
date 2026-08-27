@@ -487,6 +487,8 @@
     "Open poll • You voted already • Your vote is anonymous" : "実施中の投票 • すでに投票済み • あなたの投票は匿名です",
     "Open poll • Your vote is anonymous" : "実施中の投票 • あなたの投票は匿名です",
     "I picked list style" : "一覧表示を選びました",
-    "Hey! Are you using Talk in list style or with message bubbles?" : "Talk は一覧表示と吹き出し表示、どちらでお使いですか?"
+    "Hey! Are you using Talk in list style or with message bubbles?" : "Talk は一覧表示と吹き出し表示、どちらでお使いですか?",
+    "{count} unread messages in thread" : "スレッドに未読 {count} 件",
+    "{count} threads with unread messages" : "未読のあるスレッド {count} 件"
 },"pluralForm" :"nplurals=1; plural=0;"
 }
