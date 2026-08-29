@@ -489,6 +489,18 @@
     "I picked list style" : "一覧表示を選びました",
     "Hey! Are you using Talk in list style or with message bubbles?" : "Talk は一覧表示と吹き出し表示、どちらでお使いですか?",
     "{count} unread messages in thread" : "スレッドに未読 {count} 件",
-    "{count} threads with unread messages" : "未読のあるスレッド {count} 件"
+    "{count} threads with unread messages" : "未読のあるスレッド {count} 件",
+    "Thread" : "スレッド",
+    "Thread in {name}" : "{name} のスレッド",
+    "Insert a new line with Enter and send with Shift+Enter" : "Enter で改行し、Shift+Enter で送信する",
+    "Ctrl+Enter always sends the message" : "Ctrl+Enter では常に送信します",
+    "Remind me later – no due date" : "期限なし(後で見る)",
+    "No due date" : "期限なし",
+    "Clear reminder – no due date" : "リマインダーを解除 – 期限なし",
+    "A reminder without due date was set" : "期限なしのリマインダーを設定しました",
+    "Reminders" : "リマインダー",
+    "No reminders" : "リマインダーはありません",
+    "Set a reminder on a message to find it here later." : "メッセージにリマインダーを設定すると、ここから後で見つけられます。",
+    "Only the first {limit} reminders are shown" : "先頭 {limit} 件のみ表示しています"
 },"pluralForm" :"nplurals=1; plural=0;"
 }
