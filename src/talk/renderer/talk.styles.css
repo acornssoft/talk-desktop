@@ -26,3 +26,16 @@
 a[href="#"] .button-vue__wrapper {
 	pointer-events: none;
 }
+
+/*
+ * acorns: 背景ぼかし(backdrop-filter)を無効化する。
+ * 同梱テーマは --filter-background-blur: blur(25px) を :root と [data-theme-*] に定義し、
+ * @nextcloud/vue の NcAppNavigation / NcContent がそれを backdrop-filter に使う。
+ * 4K 全画面など HiDPI 環境ではぼかし面積が大きく、スクロール・入力のたびに
+ * 全面再描画が間に合わずワンテンポ遅れる(nextcloud/talk-desktop#1787 と同じ症状)。
+ * 見た目の差はサイドバーの透け感が消えるだけ。
+ * 独自変数ではないので !important でテーマ側の定義に優先させる。
+ */
+:root {
+	--filter-background-blur: none !important;
+}
