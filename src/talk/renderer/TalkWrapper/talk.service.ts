@@ -57,6 +57,22 @@ export async function openConversation(token: string, { directCall = false }: { 
 }
 
 /**
+ * acorns: 会話を開いて、指定の発言まで移動する(右ペインのメッセージ検索と同じ経路)
+ *
+ * @param token - Conversation token
+ * @param messageId - 発言の ID
+ * @param threadId - スレッド内の返信なら、そのスレッドの ID
+ */
+export async function openMessage(token: string, messageId: number, threadId?: number) {
+	await getTalkRouter().push({
+		name: 'conversation',
+		params: { token },
+		hash: `#message_${messageId}`,
+		query: threadId ? { threadId: String(threadId) } : {},
+	}).catch(passDuplicatedNavigationError)
+}
+
+/**
  * Ignore duplicated navigation error
  *
  * @param error - Error

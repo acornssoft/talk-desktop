@@ -4,9 +4,13 @@
   -->
 
 <script setup lang="ts">
+import type { Ref } from 'vue'
+
+import { inject } from 'vue'
 import DevMenu from './components/DevMenu.vue'
 import MainMenu from './components/MainMenu.vue'
 import UserMenu from './components/UserMenu.vue'
+import GlobalSearch from './globalSearch/GlobalSearch.vue'
 import { BUILD_CONFIG } from '../../../shared/build.config.ts'
 import { useDevMode } from '../../../shared/useDevMode.ts'
 import { useAppConfigStore } from '../Settings/appConfig.store.ts'
@@ -24,6 +28,9 @@ const OS = window.systemInfo
 const applicationName = BUILD_CONFIG.applicationName
 
 const { isDevMode } = useDevMode()
+
+// acorns: 検索結果から会話へ移動するには Talk の初期化が済んでいる必要がある
+const isTalkInitialized = inject<Ref<boolean>>('talk:isInitialized')
 </script>
 
 <template>
@@ -40,6 +47,12 @@ const { isDevMode } = useDevMode()
 			</template>
 
 			<div class="spacer" />
+
+			<!-- acorns: 全会話のメッセージ検索(Web 版ヘッダーの全体検索の代わり) -->
+			<template v-if="isTalkInitialized">
+				<GlobalSearch />
+				<div class="spacer" />
+			</template>
 
 			<div v-if="isDevMode" class="title-bar__item" data-theme-dark>
 				<DevMenu />
